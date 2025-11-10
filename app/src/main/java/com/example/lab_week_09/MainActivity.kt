@@ -3,26 +3,25 @@ package com.example.lab_week_09
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.lab_week_09.ui.theme.LAB_WEEK_09Theme
 import com.example.lab_week_09.ui.theme.OnBackgroundItemText
 import com.example.lab_week_09.ui.theme.OnBackgroundTitleText
@@ -37,96 +36,124 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    var text by remember { mutableStateOf("") }
-                    var items by remember { mutableStateOf(listOf("Tanu", "Tina", "Tono")) }
-
-                    Home(
-                        items = items,
-                        text = text,
-                        onTextChange = { text = it },
-                        onAddItem = {
-                            if (text.isNotBlank()) {
-                                items = items + text
-                                text = "" // Clear input after adding
-                            }
-                        }
-                    )
+                    val navController = rememberNavController()
+                    App(navController)
                 }
             }
         }
     }
 }
 
+data class Student(var name: String)
+
 @Composable
-fun Home(
-    items: List<String>,
-    text: String,
-    onTextChange: (String) -> Unit,
-    onAddItem: () -> Unit
+fun App(navController: NavHostController) {
+    NavHost(navController = navController, startDestination = "home") {
+        composable("home") {
+            Home { listString ->
+                navController.navigate("resultContent/?listData=$listString")
+            }
+        }
+        composable(
+            "resultContent/?listData={listData}",
+            arguments = listOf(navArgument("listData") { type = NavType.StringType })
+        ) {
+            val listDataArg = it.arguments?.getString("listData").orEmpty()
+            ResultContent(listDataArg)
+        }
+    }
+}
+
+@Composable
+fun Home(navigateFromHomeToResult: (String) -> Unit) {
+    val listData = remember {
+        mutableStateListOf(
+            Student("Tanu"),
+            Student("Tina"),
+            Student("Tono")
+        )
+    }
+    var inputField by remember { mutableStateOf(Student("")) }
+
+    HomeContent(
+        listData = listData,
+        inputField = inputField,
+        onInputValueChange = { inputField = inputField.copy(name = it) },
+        onButtonClick = {
+            if (inputField.name.isNotBlank()) {
+                listData.add(inputField)
+                inputField = Student("")
+            }
+        },
+        navigateFromHomeToResult = {
+            navigateFromHomeToResult(listData.toList().toString())
+        }
+    )
+}
+
+@Composable
+fun HomeContent(
+    listData: SnapshotStateList<Student>,
+    inputField: Student,
+    onInputValueChange: (String) -> Unit,
+    onButtonClick: () -> Unit,
+    navigateFromHomeToResult: () -> Unit
 ) {
     LazyColumn {
-        //Here, we use item to display an item inside the LazyColumn
         item {
             Column(
-                //Modifier.padding(16.dp) is used to add padding to the Column
                 modifier = Modifier
                     .padding(16.dp)
                     .fillMaxSize(),
-                //Alignment.CenterHorizontally is used to align the Column horizontally
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                //Here, we call the OnBackgroundTitleText UI Element
-                OnBackgroundTitleText(text = stringResource(
-                    id = R.string.enter_item)
-                )
-
-                //Here, we use TextField to display a text input field
+                OnBackgroundTitleText(text = stringResource(id = R.string.enter_item))
                 TextField(
-                    //Set the value of the input field
-                    value = text,
-                    //Set the keyboard type of the input field
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text
-                    ),
-                    //Set what happens when the value of the input field changes
-                    onValueChange = onTextChange
+                    value = inputField.name,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    onValueChange = { onInputValueChange(it) }
                 )
-
-                //Here, we call the PrimaryTextButton UI Element
-                PrimaryTextButton(text = stringResource(
-                    id = R.string.button_click),
-                    onClick = onAddItem
-                )
+                Row {
+                    PrimaryTextButton(
+                        text = stringResource(id = R.string.button_click),
+                        onClick = onButtonClick
+                    )
+                    PrimaryTextButton(
+                        text = stringResource(id = R.string.button_navigate),
+                        onClick = navigateFromHomeToResult
+                    )
+                }
             }
         }
-        //Here, we use items to display a list of items inside the LazyColumn
-        //This is the RecyclerView replacement
-        //We pass the listData as a parameter
-        items(items) { item ->
+        items(listData) { item ->
             Column(
                 modifier = Modifier
                     .padding(vertical = 4.dp)
                     .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                //Here, we call the OnBackgroundItemText UI Element
-                OnBackgroundItemText(text = item)
+                OnBackgroundItemText(text = item.name)
             }
         }
     }
-
 }
 
+@Composable
+fun ResultContent(listData: String) {
+    Column(
+        modifier = Modifier
+            .padding(vertical = 4.dp)
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        OnBackgroundItemText(text = listData)
+    }
+}
 
 @Preview(showBackground = true)
 @Composable
 fun PreviewHome() {
     LAB_WEEK_09Theme {
-        Home(
-            items = listOf("Tanu", "Tina", "Tono"),
-            text = "New Item",
-            onTextChange = {},
-            onAddItem = {}
-        )
+        Home(navigateFromHomeToResult = {})
     }
 }
